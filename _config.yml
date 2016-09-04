@@ -28,4 +28,4 @@ defaults:
     scope:
       path: "" # empty string for all files
     values:
-      layout: landing
+      layout: page

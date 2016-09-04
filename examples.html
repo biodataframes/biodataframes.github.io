@@ -1,0 +1,190 @@
+---
+layout: page
+---
+
+<div id="main" class="alt">
+
+  <section>
+    <div class="inner">
+      <header class="major">
+        <h1>Dataframes provided by RCSB PDB</h1>
+      </header>
+
+
+	<p class="lead">Perform data analytics on RCSB PDB data using <a href="http://spark.apache.org/">Apache Spark</a>, <a href="http://pandas.pydata.org/">Python Pandas</a>, and other tools.</p>
+
+	<p> The data is currently provided as <a href="https://parquet.apache.org/">Parquet</a> or <a href="https://cwiki.apache.org/confluence/display/Hive/LanguageManual+ORC">ORC</a> files.</p>
+
+	<p> The directory level listing of all data can be found here:
+
+	  </p><ul>
+	    <li><a href="http://dataframes.rcsb.org/parquet">Parquet files</a></li>
+	    <li><a href="http://dataframes.rcsb.org/orc">ORC files</a></li>
+
+	    </ul>
+	  <p></p>
+
+  	<p>
+      <img src="https://img.shields.io/badge/status-experimental-red.svg"/>
+	  <a href="mailto:andreas.prlic@rcsb.org" type="button" class="btn btn-xs btn-info">Contact</a>
+	</p>
+
+
+</div>
+</section>
+
+
+<section>
+  <div class="inner">
+    <header class="major">
+      <h2>Currently available data:</h2>
+    </header>
+
+
+	<ul>
+    <li>
+	    Residue level mapping of PDB to UniProt.
+    </li>
+	</ul>
+
+  <div>
+	    <p>Download via </p>
+      <blockquote>wget -r -l1 --reject "index.html*" http://dataframes.rcsb.org/parquet/uniprotpdb/20160517/</blockquote>
+	  </div>
+
+
+    <ul>
+      <li>Nucleotide level mapping of human genome to UniProt residues.</li>
+    </ul>
+
+
+	  <div class="panel-body">
+	    <p>We are currently providing mappings both for assemblies 37 and 38 on a per-chromosome level. Download via e.g</p>
+      <blockquote>wget -r -l1 --reject "index.html*" http://dataframes.rcsb.org/parquet/humangenome/20160517/hg38/chr11 </blockquote>
+
+	</div>
+
+</div>
+</section>
+
+
+  <section>
+
+    <div class="inner">
+      <header class="major">
+        <h2>Howto: Mapping from human genome to PDB</h2>
+      </header>
+
+  	This example uses <a href="http://spark.apache.org/">Apache Spark</a> and Java to reproduce the mapping of a SNP that causes sickle cell anemia.
+
+  	<p>See also <a href="http://www.rcsb.org/pdb/chromosome.do?v=hg38&amp;chromosome=11&amp;pos=5227002">RCSB PDB user interface</a> for comparison.</p>
+
+  	<pre>
+  	  //toplevel folder where wget wrote the data to
+  	  String localDir = "/Users/andreas/WORK/dataframes.rcsb.org";
+
+  	  // assumes the human genetic data is available as a parquet file
+  	  // also needs the uniprot-PDB mapping parquet file
+
+  	  int cores = Runtime.getRuntime().availableProcessors();
+
+  	  SparkConf conf = new SparkConf()
+  	  .setMaster("local[" + cores + "]")
+  	  .setAppName("map SNP to PDB");
+
+  	  JavaSparkContext sc =  new JavaSparkContext(conf);
+
+  	  SQLContext sqlContext = SparkUtils.getSqlContext(sc);
+
+  	  // register the UniProt to PDB mapping
+  	  DataFrame uniprotPDB = sqlContext.read().parquet(localDir+"/parquet/uniprotpdb/20160517");
+
+  	  uniprotPDB.registerTempTable("uniprotPDB");
+
+  	  System.out.println("Example row from PDB to UniProt mapping:");
+  	  uniprotPDB.show(1);
+  	</pre>
+
+
+  	<p> This provides the following output:</p><p>
+
+  	  </p><pre>	    Example row from PDB to UniProt mapping:
+  	    +-------+-------+----------+-----+---------+----------+
+  	    |chainId|insCode|pdbAtomPos|pdbId|uniProtId|uniProtPos|
+  	    +-------+-------+----------+-----+---------+----------+
+  	    |      A|   null|         0| 101M|   P02185|         1|
+  	    +-------+-------+----------+-----+---------+----------+
+  	    only showing top 1 row
+
+  	  </pre>
+
+  	<p> Now let's load the mapping from the human genome (assembly 38) to UniProt and let's look at a SNP.</p>
+
+  	<pre>	  DataFrame chr11 = sqlContext.read().parquet(localDir+"//parquet/humangenome/20160517/hg38/chr11");
+
+  	  chr11.registerTempTable("chr11");
+
+
+  	  DataFrame sickeCellSNP = sqlContext.sql("select * from chr11 where position = 5227002");
+
+  	  System.out.println("human genome mapping to UniProt for SNP:");
+  	  sickeCellSNP.show();
+  	</pre>
+
+  	<p>This displays the following information for one nucleotide mapped to UniProt, while considering the correct UniProt isoforms (and mapping to the canonical isoform)</p>
+  	human genome mapping to UniProt for SNP:
+  	<pre>	  human genome mapping to UniProt for SNP:
+  	  +---+--------------+-------+--------+----------+--------+-----+--------------------------+---------+-----------+-----+--------+---------+----------+
+  	  |cds|chromosomeName|exonNum|geneName|geneSymbol|inCoding|inUtr|isoformCorrectedUniprotPos|isoformNr|orientation|phase|position|uniProtId|uniProtPos|
+  	  +---+--------------+-------+--------+----------+--------+-----+--------------------------+---------+-----------+-----+--------+---------+----------+
+  	  | 20|         chr11|      3|     HBB|       HBB|   false|false|                         7|        0|          -|    1| 5227002|   P68871|         7|
+  	  +---+--------------+-------+--------+----------+--------+-----+--------------------------+---------+-----------+-----+--------+---------+----------+
+  	</pre>
+
+  	<p> Now let's map this position to PDB</p>
+
+  	<pre>	  sickeCellSNP.registerTempTable("snp");
+
+  	  // join genomic info with UniProt to PDB mapping
+  	  DataFrame map2PDB = sqlContext.sql("select * from snp left join uniprotPDB where snp.uniProtId = uniprotPDB.uniProtId and snp.uniProtPos = uniprotPDB.uniProtPos ");
+
+  	  System.out.println("All PDB entries that map to this SNP");
+            map2PDB.show();
+  	  </pre>
+
+  	<p>This gives the following mapping to PDB (note that there are many hemoglobins in PDB, as such many PDB entries can get mapped to the SNP)</p>
+
+  	<pre>	  All PDB entries that map to this SNP
+  	  +---+--------------+-------+--------+----------+--------+-----+--------------------------+---------+-----------+-----+--------+---------+----------+-------+-------+----------+-----+---------+----------+
+  	  |cds|chromosomeName|exonNum|geneName|geneSymbol|inCoding|inUtr|isoformCorrectedUniprotPos|isoformNr|orientation|phase|position|uniProtId|uniProtPos|chainId|insCode|pdbAtomPos|pdbId|uniProtId|uniProtPos|
+  	  +---+--------------+-------+--------+----------+--------+-----+--------------------------+---------+-----------+-----+--------+---------+----------+-------+-------+----------+-----+---------+----------+
+  	  | 20|         chr11|      3|     HBB|       HBB|   false|false|                         7|        0|          -|    1| 5227002|   P68871|         7|      B|   null|         6| 1A00|   P68871|         7|
+  	  | 20|         chr11|      3|     HBB|       HBB|   false|false|                         7|        0|          -|    1| 5227002|   P68871|         7|      D|   null|         6| 1A00|   P68871|         7|
+  	  | 20|         chr11|      3|     HBB|       HBB|   false|false|                         7|        0|          -|    1| 5227002|   P68871|         7|      B|   null|         6| 1A01|   P68871|         7|
+  	  | 20|         chr11|      3|     HBB|       HBB|   false|false|                         7|        0|          -|    1| 5227002|   P68871|         7|      D|   null|         6| 1A01|   P68871|         7|
+  	  | 20|         chr11|      3|     HBB|       HBB|   false|false|                         7|        0|          -|    1| 5227002|   P68871|         7|      B|   null|         6| 1A0U|   P68871|         7|
+  	  | 20|         chr11|      3|     HBB|       HBB|   false|false|                         7|        0|          -|    1| 5227002|   P68871|         7|      D|   null|         6| 1A0U|   P68871|         7|
+  	  | 20|         chr11|      3|     HBB|       HBB|   false|false|                         7|        0|          -|    1| 5227002|   P68871|         7|      B|   null|         6| 1A0Z|   P68871|         7|
+  	  | 20|         chr11|      3|     HBB|       HBB|   false|false|                         7|        0|          -|    1| 5227002|   P68871|         7|      D|   null|         6| 1A0Z|   P68871|         7|
+  	  | 20|         chr11|      3|     HBB|       HBB|   false|false|                         7|        0|          -|    1| 5227002|   P68871|         7|      B|   null|         6| 1A3N|   P68871|         7|
+  	  | 20|         chr11|      3|     HBB|       HBB|   false|false|                         7|        0|          -|    1| 5227002|   P68871|         7|      D|   null|         6| 1A3N|   P68871|         7|
+  	  | 20|         chr11|      3|     HBB|       HBB|   false|false|                         7|        0|          -|    1| 5227002|   P68871|         7|      B|   null|         6| 1A3O|   P68871|         7|
+  	  | 20|         chr11|      3|     HBB|       HBB|   false|false|                         7|        0|          -|    1| 5227002|   P68871|         7|      D|   null|         6| 1A3O|   P68871|         7|
+  	  | 20|         chr11|      3|     HBB|       HBB|   false|false|                         7|        0|          -|    1| 5227002|   P68871|         7|      B|   null|         6| 1ABW|   P68871|         7|
+  	  | 20|         chr11|      3|     HBB|       HBB|   false|false|                         7|        0|          -|    1| 5227002|   P68871|         7|      D|   null|         6| 1ABW|   P68871|         7|
+  	  | 20|         chr11|      3|     HBB|       HBB|   false|false|                         7|        0|          -|    1| 5227002|   P68871|         7|      B|   null|         6| 1ABY|   P68871|         7|
+  	  | 20|         chr11|      3|     HBB|       HBB|   false|false|                         7|        0|          -|    1| 5227002|   P68871|         7|      D|   null|         6| 1ABY|   P68871|         7|
+  	  | 20|         chr11|      3|     HBB|       HBB|   false|false|                         7|        0|          -|    1| 5227002|   P68871|         7|      B|   null|         6| 1AJ9|   P68871|         7|
+  	  | 20|         chr11|      3|     HBB|       HBB|   false|false|                         7|        0|          -|    1| 5227002|   P68871|         7|      B|   null|       149| 1B86|   P68871|         7|
+  	  | 20|         chr11|      3|     HBB|       HBB|   false|false|                         7|        0|          -|    1| 5227002|   P68871|         7|      D|   null|       549| 1B86|   P68871|         7|
+  	  | 20|         chr11|      3|     HBB|       HBB|   false|false|                         7|        0|          -|    1| 5227002|   P68871|         7|      B|   null|         6| 1BAB|   P68871|         7|
+  	  +---+--------------+-------+--------+----------+--------+-----+--------------------------+---------+-----------+-----+--------+---------+----------+-------+-------+----------+-----+---------+----------+
+  	  only showing top 20 rows
+
+
+  	</pre>
+
+  </div>
+  </section>
+
+</div> <!-- end of examples -->
