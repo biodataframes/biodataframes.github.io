@@ -80,7 +80,7 @@ layout: page
 
   	<p>See also <a href="http://www.rcsb.org/pdb/chromosome.do?v=hg38&amp;chromosome=11&amp;pos=5227002">RCSB PDB user interface</a> for comparison.</p>
 
-  	<pre>
+  	<pre><code>
   	  //toplevel folder where wget wrote the data to
   	  String localDir = "/Users/andreas/WORK/dataframes.rcsb.org";
 
@@ -104,12 +104,13 @@ layout: page
 
   	  System.out.println("Example row from PDB to UniProt mapping:");
   	  uniprotPDB.show(1);
-  	</pre>
+</code> </pre>
 
 
   	<p> This provides the following output:</p><p>
 
-  	  </p><pre>	    Example row from PDB to UniProt mapping:
+    </p><pre><code>
+      	    Example row from PDB to UniProt mapping:
   	    +-------+-------+----------+-----+---------+----------+
   	    |chainId|insCode|pdbAtomPos|pdbId|uniProtId|uniProtPos|
   	    +-------+-------+----------+-----+---------+----------+
@@ -117,11 +118,12 @@ layout: page
   	    +-------+-------+----------+-----+---------+----------+
   	    only showing top 1 row
 
-  	  </pre>
+  	  </code></pre>
 
   	<p> Now let's load the mapping from the human genome (assembly 38) to UniProt and let's look at a SNP.</p>
 
-  	<pre>	  DataFrame chr11 = sqlContext.read().parquet(localDir+"//parquet/humangenome/20160517/hg38/chr11");
+  	<pre><code>
+      	  DataFrame chr11 = sqlContext.read().parquet(localDir+"//parquet/humangenome/20160517/hg38/chr11");
 
   	  chr11.registerTempTable("chr11");
 
@@ -130,32 +132,35 @@ layout: page
 
   	  System.out.println("human genome mapping to UniProt for SNP:");
   	  sickeCellSNP.show();
-  	</pre>
+  	</code></pre>
 
   	<p>This displays the following information for one nucleotide mapped to UniProt, while considering the correct UniProt isoforms (and mapping to the canonical isoform)</p>
   	human genome mapping to UniProt for SNP:
-  	<pre>	  human genome mapping to UniProt for SNP:
+  	<pre><code>
+      	  human genome mapping to UniProt for SNP:
   	  +---+--------------+-------+--------+----------+--------+-----+--------------------------+---------+-----------+-----+--------+---------+----------+
   	  |cds|chromosomeName|exonNum|geneName|geneSymbol|inCoding|inUtr|isoformCorrectedUniprotPos|isoformNr|orientation|phase|position|uniProtId|uniProtPos|
   	  +---+--------------+-------+--------+----------+--------+-----+--------------------------+---------+-----------+-----+--------+---------+----------+
   	  | 20|         chr11|      3|     HBB|       HBB|   false|false|                         7|        0|          -|    1| 5227002|   P68871|         7|
   	  +---+--------------+-------+--------+----------+--------+-----+--------------------------+---------+-----------+-----+--------+---------+----------+
-  	</pre>
+  	</code></pre>
 
   	<p> Now let's map this position to PDB</p>
 
-  	<pre>	  sickeCellSNP.registerTempTable("snp");
+  	<pre><code>
+      	  sickeCellSNP.registerTempTable("snp");
 
   	  // join genomic info with UniProt to PDB mapping
   	  DataFrame map2PDB = sqlContext.sql("select * from snp left join uniprotPDB where snp.uniProtId = uniprotPDB.uniProtId and snp.uniProtPos = uniprotPDB.uniProtPos ");
 
   	  System.out.println("All PDB entries that map to this SNP");
             map2PDB.show();
-  	  </pre>
+  	  </code></pre>
 
   	<p>This gives the following mapping to PDB (note that there are many hemoglobins in PDB, as such many PDB entries can get mapped to the SNP)</p>
 
-  	<pre>	  All PDB entries that map to this SNP
+  	<pre>	<code>
+        All PDB entries that map to this SNP
   	  +---+--------------+-------+--------+----------+--------+-----+--------------------------+---------+-----------+-----+--------+---------+----------+-------+-------+----------+-----+---------+----------+
   	  |cds|chromosomeName|exonNum|geneName|geneSymbol|inCoding|inUtr|isoformCorrectedUniprotPos|isoformNr|orientation|phase|position|uniProtId|uniProtPos|chainId|insCode|pdbAtomPos|pdbId|uniProtId|uniProtPos|
   	  +---+--------------+-------+--------+----------+--------+-----+--------------------------+---------+-----------+-----+--------+---------+----------+-------+-------+----------+-----+---------+----------+
@@ -183,7 +188,7 @@ layout: page
   	  only showing top 20 rows
 
 
-  	</pre>
+  	</code></pre>
 
   </div>
   </section>
